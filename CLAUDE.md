@@ -17,10 +17,11 @@ macOS has no `python` command. The venv lives **outside the repo** at `~/.venvs/
 ~/.venvs/billreader/bin/python -m pytest tests/test_parser.py::test_kbank_all_fields -q   # single test
 ~/.venvs/billreader/bin/python -m slipsense_ml.eval.validate_labels [--assign-splits]     # check data/labels.jsonl
 ~/.venvs/billreader/bin/python -m slipsense_ml.eval.run_ocr --engine tesseract            # stage 1: OCR → data/ocr_cache/<engine>/<id>.json
-~/.venvs/billreader/bin/python -m slipsense_ml.eval.score --engines tesseract easyocr     # stage 2: parse + score (dev split by default)
+~/.venvs/billreader/bin/python -m slipsense_ml.eval.run_qr                               # stage 1b: QR payloads → data/ocr_cache/_qr/ (needs extra `qr`)
+~/.venvs/billreader/bin/python -m slipsense_ml.eval.score --engines tesseract easyocr     # stage 2: parse + score (dev split by default; adds <engine>+qr tables if _qr cache exists)
 ```
 
-OCR engines are optional extras in `ml/pyproject.toml` (`tesseract`, `easyocr`, `paddle`, `typhoon`, `gcv`); install only what you run. PaddleOCR may need Python 3.11/3.12. CI (`.github/workflows/ci.yml`) only installs pytest: core code (`schema`, `parsing`, `eval`) must stay **stdlib-only**.
+OCR engines and QR decoding are optional extras in `ml/pyproject.toml` (`tesseract`, `easyocr`, `paddle`, `typhoon`, `gcv`, `qr`); install only what you run. PaddleOCR may need Python 3.11/3.12. CI (`.github/workflows/ci.yml`) only installs pytest: core code (`schema`, `parsing`, `eval`) must stay **stdlib-only**.
 
 ## Architecture
 
@@ -29,6 +30,8 @@ Package `ml/slipsense_ml/`; Phase 2 API is meant to import it directly.
 - `schema.py`: shared contract. `SlipFields` (bank, amount as `Decimal`, paid_at Gregorian at minute precision, receiver_name, ref) and `OCRResult` (text, lines, latency). `FIELDS` drives metrics and tables.
 - `ocr/`: adapter pattern. Every engine exposes `run(path) -> OCRResult` plus `is_cloud` and `cost_per_1k_usd`. `ENGINES` maps names to classes and imports lazily, so heavy deps load only when used. `_group_by_row` merges boxes on the same y-line, because parsers rely on label and value sharing a line.
 - `parsing/`: `normalize.py` handles Thai digits, `ํา`→`ำ`, month abbreviations with or without dots, Buddhist-era years (2-digit ≥60 means BE). `parser.py` = generic labels + per-bank `BankTemplate` overrides, anchored on labels rather than line positions. `detect_bank` picks the bank keyword that appears *earliest* (the sender/app is at the top). The per-bank labels in `TEMPLATES` are unverified guesses until real slips are benchmarked.
+- `parsing/qr.py` (stdlib): slip QR payload is TLV `00{00 06 000001, 01 03 <bank code>, 02 nn <ref>} 51 02 TH 91 04 <CRC16>`. CRC is checked, so a decoded ref is exact; `parse_slip(text, qr_payload)` takes ref and bank from QR over OCR. Image decoding (`ocr/qr_image.py`, opencv) stays outside core.
+- Receiver on K+/make has no label: it is the first name-like line after the first masked account line (`xxx-x-x1234-x`). `normalize_text` keeps runs of spaces as two spaces so `_clean_name` can split off Tesseract column junk; EasyOCR output has Latin text lowercased.
 - `eval/`: two-stage pipeline. `run_ocr` caches raw OCR, so parser iterations never re-run OCR. `score` scores each field at two levels: **OCR recall** (does the gold value appear in the OCR text) and **end-to-end accuracy** (parser output == label). High recall with low e2e accuracy means a parser bug. Names use fuzzy matching (≥0.85, prefix-stripped); a gold field of `null` is excluded from the denominator.
 
 ## Data rules (important)

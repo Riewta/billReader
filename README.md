@@ -21,13 +21,14 @@ api/  web/            Phase 2
 ```bash
 # venv อยู่นอก repo: repo อยู่บน Desktop ที่ iCloud sync ซึ่งจะซ่อนไฟล์ใน .venv/ จน Python 3.13 import ไม่ได้
 python3 -m venv ~/.venvs/billreader && source ~/.venvs/billreader/bin/activate
-pip install -e "ml[dev,tesseract,easyocr]"     # เลือก extras ตาม engine ที่จะลอง
+pip install -e "ml[dev,tesseract,easyocr,qr]"  # เลือก extras ตาม engine ที่จะลอง (qr = ถอด QR บนสลิป)
 brew install tesseract tesseract-lang           # ถ้าใช้ tesseract
 
 # 1) ใส่รูปใน data/raw/ และเขียน data/labels.jsonl (ดู data/README.md)
 # 2) รัน OCR ครั้งเดียว ผลถูก cache ไว้
 python -m slipsense_ml.eval.run_ocr --engine tesseract
 python -m slipsense_ml.eval.run_ocr --engine easyocr
+python -m slipsense_ml.eval.run_qr                # ถอด QR: ได้ ref + ธนาคารแบบตรงตัว (CRC ตรวจแล้ว)
 # 3) วน แก้ parser -> score ได้เร็ว ไม่ต้องรัน OCR ใหม่
 python -m slipsense_ml.eval.score --engines tesseract easyocr
 pytest -q
