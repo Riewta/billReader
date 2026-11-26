@@ -35,15 +35,18 @@ pytest -q
 ```
 
 ## ผลเทียบ OCR
-_(ยังไม่มี — ตัวเลขจะมาจาก results/benchmark_test.md (test split) เท่านั้น)_
+ตัวเลขจาก test split ([results/benchmark_test.md](results/benchmark_test.md)) ซึ่งไม่เคยใช้ปรับ parser
+**n=7 (KBank 6, SCB 1) ยังน้อยมาก**: 1 ใบ = 14% ใช้ดูทิศทาง ไม่ใช่ตัวเลขสุดท้าย · `+QR` = ref และธนาคารอ่านจาก QR บนสลิป
 
-| engine | รันที่ | ค่าใช้จ่าย / 1k รูป | amount | paid_at | receiver | ref | median latency |
-|---|---|---|---|---|---|---|---|
-| Tesseract | เครื่อง | ฟรี | | | | | |
-| EasyOCR | เครื่อง | ฟรี | | | | | |
-| PaddleOCR | เครื่อง | ฟรี | | | | | |
-| Typhoon OCR | cloud/GPU | free tier | | | | | |
-| Google Vision | cloud | ~$1.5 (ฟรี 1k แรก/เดือน) | | | | | |
+| engine | รันที่ | ค่าใช้จ่าย / 1k รูป | bank | amount | paid_at | receiver | ref | median latency |
+|---|---|---|---|---|---|---|---|---|
+| Tesseract | เครื่อง | ฟรี | 71% | 86% | 86% | 43% | 57% | 0.46s |
+| Tesseract + QR | เครื่อง | ฟรี | 100% | 86% | 86% | 43% | 100% | 0.46s |
+| EasyOCR | เครื่อง | ฟรี | 100% | 100% | 100% | 86% | 71% | 7.2s |
+| EasyOCR + QR | เครื่อง | ฟรี | 100% | 100% | 100% | 86% | 100% | 7.2s |
+| PaddleOCR | เครื่อง | ฟรี | | | | | | |
+| Typhoon OCR | cloud/GPU | free tier | | | | | | |
+| Google Vision | cloud | ~$1.5 (ฟรี 1k แรก/เดือน) | | | | | | |
 
 ## Privacy
 สลิปจริงไม่เคยถูก commit · engine ที่เป็น cloud จะข้ามสลิปที่ `cloud_ok=false` · ดู [data/README.md](data/README.md)
