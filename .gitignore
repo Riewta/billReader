@@ -21,6 +21,12 @@ __pycache__/
 .pytest_cache/
 .ipynb_checkpoints/
 
+# IDE / OS — ค่าตั้งเฉพาะเครื่อง ไม่เกี่ยวกับโค้ด
+.idea/
+.vscode/
+*.iml
+.DS_Store
+
 # Node (Phase 2)
 node_modules/
 .next/
