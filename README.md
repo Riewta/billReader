@@ -33,7 +33,7 @@ pytest -q
 ```
 
 ## ผลเทียบ OCR
-_(ยังไม่มี — จะใส่ตารางจาก results/benchmark.md หลังเก็บสลิปชุดแรก)_
+_(ยังไม่มี — ตัวเลขจะมาจาก results/benchmark_test.md (test split) เท่านั้น)_
 
 | engine | รันที่ | ค่าใช้จ่าย / 1k รูป | amount | paid_at | receiver | ref | median latency |
 |---|---|---|---|---|---|---|---|
