@@ -18,9 +18,14 @@ class LabeledSlip:
     gold: SlipFields
     kind: str | None = None
     cloud_ok: bool = True
+    split: str = "dev"  # dev = ไว้ดู error/ปรับ parser, test = ห้ามเปิดดู ใช้วัดผลตอนจบเท่านั้น
 
 
-def load_labels(path: str | Path) -> list[LabeledSlip]:
+SPLITS = ("dev", "test")
+
+
+def load_labels(path: str | Path, split: str | None = None) -> list[LabeledSlip]:
+    """split=None คืนทุกใบ; "dev"/"test" กรองเฉพาะชุดนั้น"""
     out: list[LabeledSlip] = []
     for i, line in enumerate(Path(path).read_text(encoding="utf-8").splitlines(), 1):
         if not line.strip():
@@ -40,6 +45,7 @@ def load_labels(path: str | Path) -> list[LabeledSlip]:
             LabeledSlip(
                 id=r["id"], file=r["file"], gold=gold,
                 kind=r.get("kind"), cloud_ok=r.get("cloud_ok", True),
+                split=r.get("split", "dev"),
             )
         )
-    return out
+    return [s for s in out if split is None or s.split == split]

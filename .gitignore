@@ -1,6 +1,7 @@
 # --- ข้อมูลอ่อนไหว: ห้าม commit สลิปจริงเด็ดขาด ---
 data/raw/
 data/labels.jsonl
+data/*.bak
 data/ocr_cache/
 *.jpg
 *.jpeg

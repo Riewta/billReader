@@ -21,9 +21,25 @@
 ```json
 {"id": "kbank_001", "file": "kbank_001.jpg", "bank": "kbank", "amount": "150.00",
  "paid_at": "2025-11-03T12:34", "receiver_name": "นาย สมชาย ใจดี", "ref": "015307123456ABC12345",
- "kind": "transfer", "cloud_ok": true}
+ "kind": "transfer", "cloud_ok": true, "split": "dev"}
 ```
 - `paid_at` เป็น **ค.ศ.** เสมอ (แปลงจาก พ.ศ. ตอน label) ตัดวินาทีทิ้ง
 - `receiver_name` พิมพ์ **ตามที่ปรากฏบนสลิป** (ถ้าสลิปปิดบางส่วนเช่น `นาย สมชาย ใ***` ก็พิมพ์แบบนั้น)
 - field ที่สลิปไม่มี ให้ใส่ `null` — จะไม่ถูกนับในตัวหารของ field นั้น
 - `kind`: `transfer | promptpay | qr_merchant | bill` ไว้ดูว่า parser พังกับสลิปประเภทไหน
+- `amount` เป็น **string** (`"150.00"`) ไม่ใช่ตัวเลข — ตัวเลขใน JSON ถูกอ่านเป็น float
+- `split`: `dev | test` — ไม่ต้องใส่เอง ให้ `--assign-splits` ใส่ให้ (ดูด้านล่าง)
+
+## dev / test split — ทำไมต้องแบ่ง
+ถ้าปรับ regex จนผ่านทุกใบ แล้ววัดผลจากใบเดิม ตัวเลขจะสูงเกินจริง เพราะ parser "จำข้อสอบ" (overfitting)
+- **dev** (~2/3): เปิดดู error ได้ ปรับ parser ได้ตามใจ — `score` ใช้ชุดนี้เป็นค่าเริ่มต้น
+- **test** (~1/3): **ห้ามเปิดดู** รัน `score --split test` ครั้งเดียวตอนจบ ตัวเลขใน README มาจากชุดนี้เท่านั้น
+- แบ่งแยกต่อธนาคาร (stratified) และใช้ hash ของ `id` → รันซ้ำได้ผลเดิม เพิ่มสลิปทีหลังใบเก่าไม่ย้าย
+- ใบที่เป็น test แล้ว **ห้ามเปลี่ยนเป็น dev** — script จะไม่แตะใบที่มี split อยู่แล้ว
+
+## ตรวจ label
+```bash
+python -m slipsense_ml.eval.validate_labels                  # ตรวจอย่างเดียว
+python -m slipsense_ml.eval.validate_labels --assign-splits  # ใส่ split ให้ใบที่ยังไม่มี (สำรอง .bak)
+```
+จับได้: JSON พัง, id/รูปซ้ำ, รูปหาย, รูปที่ยังไม่ label, key พิมพ์ผิด, ปี พ.ศ., ยอดผิดรูป, ref มีช่องว่าง
