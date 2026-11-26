@@ -188,6 +188,12 @@ def main() -> None:
     args = ap.parse_args()
 
     path = Path(args.labels)
+    if not path.is_file():
+        sys.exit(
+            f"ยังไม่มี {path}\n"
+            f"สร้างไฟล์นี้ก่อน (ดูรูปแบบใน data/README.md หรือ copy จาก data/labels.example.jsonl)\n"
+            f"หรือระบุไฟล์อื่นด้วย --labels <path>"
+        )
     records = read_records(path)
     iss = validate(records, Path(args.images))
     for w in iss.warnings:
