@@ -10,14 +10,14 @@ The owner writes in Thai and wants answers in Thai, with the *reasoning* behind 
 
 ## Commands
 
-macOS has no `python` command; use the venv (`.venv/` is created with `python3 -m venv .venv && .venv/bin/pip install -e "ml[dev]"`). Run everything from the repo root. If `.venv/bin/python -m slipsense_ml…` raises `ModuleNotFoundError`, macOS has set the `hidden` flag on the editable-install `.pth` (the folder is on iCloud-synced Desktop) and Python 3.13 skips hidden `.pth` files. Fix it with `chflags nohidden .venv/lib/python3.13/site-packages/*.pth`, or prefix with `PYTHONPATH=ml`. pytest is unaffected.
+macOS has no `python` command. The venv lives **outside the repo** at `~/.venvs/billreader` (create: `python3 -m venv ~/.venvs/billreader && ~/.venvs/billreader/bin/pip install -e "ml[dev]"`). Don't create it inside the repo: the repo is on iCloud-synced Desktop, which sets the `hidden` flag on files under `.venv/`, and Python 3.13 skips hidden `.pth` files, so the editable install stops importing (`ModuleNotFoundError`). Run everything from the repo root.
 
 ```bash
-.venv/bin/python -m pytest -q                                   # all tests (pytest.ini sets pythonpath=ml)
-.venv/bin/python -m pytest tests/test_parser.py::test_kbank_all_fields -q   # single test
-.venv/bin/python -m slipsense_ml.eval.validate_labels [--assign-splits]     # check data/labels.jsonl
-.venv/bin/python -m slipsense_ml.eval.run_ocr --engine tesseract            # stage 1: OCR → data/ocr_cache/<engine>/<id>.json
-.venv/bin/python -m slipsense_ml.eval.score --engines tesseract easyocr     # stage 2: parse + score (dev split by default)
+~/.venvs/billreader/bin/python -m pytest -q                                   # all tests (pytest.ini sets pythonpath=ml)
+~/.venvs/billreader/bin/python -m pytest tests/test_parser.py::test_kbank_all_fields -q   # single test
+~/.venvs/billreader/bin/python -m slipsense_ml.eval.validate_labels [--assign-splits]     # check data/labels.jsonl
+~/.venvs/billreader/bin/python -m slipsense_ml.eval.run_ocr --engine tesseract            # stage 1: OCR → data/ocr_cache/<engine>/<id>.json
+~/.venvs/billreader/bin/python -m slipsense_ml.eval.score --engines tesseract easyocr     # stage 2: parse + score (dev split by default)
 ```
 
 OCR engines are optional extras in `ml/pyproject.toml` (`tesseract`, `easyocr`, `paddle`, `typhoon`, `gcv`); install only what you run. PaddleOCR may need Python 3.11/3.12. CI (`.github/workflows/ci.yml`) only installs pytest: core code (`schema`, `parsing`, `eval`) must stay **stdlib-only**.
