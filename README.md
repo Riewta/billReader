@@ -19,7 +19,8 @@ api/  web/            Phase 2
 
 ## Phase 1: วิธีรัน benchmark
 ```bash
-python3.11 -m venv .venv && source .venv/bin/activate
+# venv อยู่นอก repo: repo อยู่บน Desktop ที่ iCloud sync ซึ่งจะซ่อนไฟล์ใน .venv/ จน Python 3.13 import ไม่ได้
+python3 -m venv ~/.venvs/billreader && source ~/.venvs/billreader/bin/activate
 pip install -e "ml[dev,tesseract,easyocr]"     # เลือก extras ตาม engine ที่จะลอง
 brew install tesseract tesseract-lang           # ถ้าใช้ tesseract
 
