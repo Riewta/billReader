@@ -1,0 +1,2 @@
+{"id": "kbank_001", "file": "kbank_001.jpg", "bank": "kbank", "amount": "150.00", "paid_at": "2025-11-03T12:34", "receiver_name": "นาย สมชาย ใจดี", "ref": "015307123456ABC12345", "kind": "transfer", "cloud_ok": true}
+{"id": "scb_001", "file": "scb_001.jpg", "bank": "scb", "amount": "1250.00", "paid_at": "2025-10-28T08:05", "receiver_name": "ร้านกาแฟดีดี", "ref": "2025102808051234567", "kind": "qr_merchant", "cloud_ok": false}

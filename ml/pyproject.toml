@@ -1,0 +1,22 @@
+[project]
+name = "slipsense-ml"
+version = "0.1.0"
+description = "OCR + parsing + evaluation สำหรับสลิปโอนเงินไทย"
+requires-python = ">=3.11"
+# core (parser + metrics) ใช้แค่ stdlib -> CI เร็ว ไม่ต้องลง OCR หนัก ๆ
+dependencies = []
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+tesseract = ["pytesseract>=0.3", "Pillow>=10"]
+easyocr = ["easyocr>=1.7"]
+paddle = ["paddleocr>=3.0", "paddlepaddle>=3.0"]
+typhoon = ["typhoon-ocr"]
+gcv = ["google-cloud-vision>=3.7"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["slipsense_ml*"]

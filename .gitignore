@@ -1,0 +1,26 @@
+# --- ข้อมูลอ่อนไหว: ห้าม commit สลิปจริงเด็ดขาด ---
+data/raw/
+data/labels.jsonl
+data/ocr_cache/
+*.jpg
+*.jpeg
+*.png
+*.heic
+!docs/**/*.png
+!docs/**/*.gif
+
+# credentials ของ cloud OCR
+.env
+*.json.key
+gcp-*.json
+
+# Python
+__pycache__/
+*.egg-info/
+.venv/
+.pytest_cache/
+.ipynb_checkpoints/
+
+# Node (Phase 2)
+node_modules/
+.next/
