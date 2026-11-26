@@ -1,4 +1,5 @@
 from collections import Counter
+from pathlib import Path
 
 from slipsense_ml.eval.dataset import load_labels
 from slipsense_ml.eval.validate_labels import assign_splits, read_records, validate
@@ -79,7 +80,53 @@ def test_assign_splits_never_touches_existing():
 
 
 def test_load_labels_filters_split():
-    path = "data/labels.example.jsonl"
+    path = Path(__file__).parents[1] / "data" / "labels.example.jsonl"
     assert [s.id for s in load_labels(path, split="dev")] == ["kbank_001"]
     assert [s.id for s in load_labels(path, split="test")] == ["scb_001"]
     assert len(load_labels(path)) == 2
+
+
+# --- regression tests จาก code review ---
+
+def test_unassigned_slips_are_not_dev(tmp_path):
+    # ใบที่ยังไม่แบ่งต้องไม่ถูกนับเป็น dev ไม่งั้นเห็น error แล้วอาจถูกย้ายไป test ทีหลัง
+    p = tmp_path / "labels.jsonl"
+    p.write_text('{"id": "a", "file": "a.jpg", "bank": "kbank"}\n', encoding="utf-8")
+    assert load_labels(p, split="dev") == []
+    assert load_labels(p)[0].split is None
+
+
+def test_invalid_split_raises_in_loader(tmp_path):
+    p = tmp_path / "labels.jsonl"
+    p.write_text('{"id": "a", "file": "a.jpg", "bank": "kbank", "split": "Test"}\n', encoding="utf-8")
+    try:
+        load_labels(p)
+    except ValueError as e:
+        assert ":1" in str(e)
+    else:
+        raise AssertionError("ควร raise")
+
+
+def test_buddhist_leap_day_gets_be_hint():
+    iss = _v({**GOOD, "paid_at": "2567-02-29T10:00"})
+    assert any("พ.ศ." in e and "2024" in e for e in iss.errors)
+
+
+def test_non_string_id_and_file_reported_not_crash(tmp_path):
+    iss = _v({**GOOD, "id": ["x"], "file": 123}, images_dir=tmp_path)
+    assert any("'id'" in e for e in iss.errors) and any("'file'" in e for e in iss.errors)
+
+
+def test_score_refuses_when_slips_unassigned(tmp_path, monkeypatch):
+    import sys
+
+    import pytest
+
+    from slipsense_ml.eval import score
+
+    p = tmp_path / "labels.jsonl"
+    p.write_text('{"id": "a", "file": "a.jpg", "bank": "kbank"}\n', encoding="utf-8")
+    monkeypatch.setattr(sys, "argv", ["score", "--labels", str(p), "--out", str(tmp_path / "out")])
+    with pytest.raises(SystemExit) as ex:
+        score.main()
+    assert "assign-splits" in str(ex.value)

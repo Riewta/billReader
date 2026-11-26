@@ -73,6 +73,9 @@ def validate(records: list[tuple[int, dict | str]], images_dir: Path | None = No
         for k in ("id", "file", "bank"):
             if not r.get(k):
                 err(ln, f"ต้องมี '{k}'")
+            elif not isinstance(r[k], str):
+                err(ln, f"'{k}' ต้องเป็นข้อความ ไม่ใช่ {r[k]!r}")
+                r = {**r, k: None}  # กันบรรทัดล่าง ๆ พังเพราะใช้ค่านี้เป็น key/path
 
         if (sid := r.get("id")) is not None:
             if sid in seen_ids:
@@ -101,14 +104,18 @@ def validate(records: list[tuple[int, dict | str]], images_dir: Path | None = No
             if not isinstance(pa, str) or not _PAID_AT.match(pa):
                 err(ln, f"paid_at '{pa}' ต้องเป็นรูป YYYY-MM-DDTHH:MM")
             else:
-                try:
-                    year = datetime.fromisoformat(pa).year
-                    if year > max_year:
-                        err(ln, f"paid_at ปี {year} — น่าจะเป็น พ.ศ. ให้ลบ 543 (= {year - 543})")
-                    elif year < MIN_YEAR:
-                        err(ln, f"paid_at ปี {year} เก่าผิดปกติ")
-                except ValueError:
-                    err(ln, f"paid_at '{pa}' ไม่ใช่วันที่จริง")
+                # เช็คปีจากข้อความก่อน parse: ปี พ.ศ. อย่าง 2567-02-29 parse ไม่ผ่าน
+                # (2567 ไม่ใช่ปีอธิกสุรทินแบบ ค.ศ.) แต่ควรได้คำแนะนำเรื่อง พ.ศ. ไม่ใช่ "วันที่ไม่จริง"
+                year = int(pa[:4])
+                if year > max_year:
+                    err(ln, f"paid_at ปี {year} — น่าจะเป็น พ.ศ. ให้ลบ 543 (= {year - 543})")
+                elif year < MIN_YEAR:
+                    err(ln, f"paid_at ปี {year} เก่าผิดปกติ")
+                else:
+                    try:
+                        datetime.fromisoformat(pa)
+                    except ValueError:
+                        err(ln, f"paid_at '{pa}' ไม่ใช่วันที่จริง")
 
         name = r.get("receiver_name")
         if name is not None and (not isinstance(name, str) or not name.strip()):
@@ -129,7 +136,7 @@ def validate(records: list[tuple[int, dict | str]], images_dir: Path | None = No
 
         sp = r.get("split")
         if sp is None:
-            warn(ln, "ไม่มี split (จะถือเป็น dev) — รันด้วย --assign-splits")
+            warn(ln, "ยังไม่มี split — score จะไม่ยอมรันจนกว่าจะรัน --assign-splits")
         elif sp not in SPLITS:
             err(ln, f"split '{sp}' ต้องเป็น {SPLITS}")
 
@@ -184,7 +191,7 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--labels", default="data/labels.jsonl")
     ap.add_argument("--images", default="data/raw")
-    ap.add_argument("--assign-splits", action="store_true", help="ใส่ split ให้ใบที่ยังไม่มี (สำรองไฟล์เดิมเป็น .bak)")
+    ap.add_argument("--assign-splits", action="store_true", help="ใส่ split ให้ใบที่ยังไม่มี (สำรองไฟล์เดิมเป็น <ชื่อ>.<เวลา>.bak)")
     args = ap.parse_args()
 
     path = Path(args.labels)
@@ -207,7 +214,9 @@ def main() -> None:
         rows = [r for _, r in records]
         n = assign_splits(rows)
         if n:
-            shutil.copy(path, path.with_suffix(path.suffix + ".bak"))
+            # ชื่อ backup มีเวลา: รันหลายรอบก็ไม่ทับไฟล์ต้นฉบับรอบแรก
+            stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            shutil.copy(path, path.with_name(f"{path.name}.{stamp}.bak"))
             path.write_text("".join(json.dumps(r, ensure_ascii=False) + "\n" for r in rows), encoding="utf-8")
         print(f"ใส่ split ให้ {n} ใบ")
 

@@ -12,6 +12,7 @@ from __future__ import annotations
 import argparse
 import json
 import statistics
+import sys
 from pathlib import Path
 
 from slipsense_ml.eval.dataset import load_labels
@@ -43,6 +44,14 @@ def main() -> None:
     ap.add_argument("--split", choices=["dev", "test", "all"], default="dev")
     args = ap.parse_args()
     split = None if args.split == "all" else args.split
+
+    unassigned = [s.id for s in load_labels(args.labels) if s.split is None]
+    if unassigned:
+        # ไม่ให้ score จนกว่าจะแบ่งครบ: ถ้าเปิดดู error ก่อนแบ่ง ใบที่เห็นแล้วอาจถูกสุ่มไปอยู่ test
+        sys.exit(
+            f"มี {len(unassigned)} ใบที่ยังไม่มี split (เช่น {', '.join(unassigned[:3])})\n"
+            "รัน: python -m slipsense_ml.eval.validate_labels --assign-splits"
+        )
 
     out = Path(args.out)
     out.mkdir(exist_ok=True)
