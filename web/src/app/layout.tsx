@@ -1,0 +1,37 @@
+import type { Metadata, Viewport } from "next";
+import { IBM_Plex_Sans_Thai } from "next/font/google";
+import { BottomNav } from "@/components/BottomNav";
+import "./globals.css";
+
+// ฟอนต์ที่มีทั้งไทยและอังกฤษในชุดเดียว: ตัวเลข/เลขอ้างอิงกับชื่อไทยจะได้หน้าตาเข้ากัน
+// next/font โหลดไฟล์มาเก็บในแอปตอน build ผู้ใช้ไม่ต้องยิงไป Google
+const thai = IBM_Plex_Sans_Thai({
+  variable: "--font-thai",
+  subsets: ["thai", "latin"],
+  weight: ["400", "500"],
+});
+
+export const metadata: Metadata = {
+  title: "SlipSense",
+  description: "จดรายจ่ายอัตโนมัติจากสลิปโอนเงิน",
+};
+
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  themeColor: "#f7f7f5",
+};
+
+export default function RootLayout({ children }: LayoutProps<"/">) {
+  return (
+    <html lang="th" className={`${thai.variable} h-full antialiased`}>
+      <body className="min-h-full font-sans">
+        {/* mobile-first: จำกัดความกว้างเท่ามือถือ แม้เปิดบนจอใหญ่ */}
+        <div className="mx-auto flex min-h-dvh max-w-md flex-col">
+          <main className="flex-1 px-4 pt-6 pb-24">{children}</main>
+          <BottomNav />
+        </div>
+      </body>
+    </html>
+  );
+}
