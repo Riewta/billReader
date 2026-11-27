@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project
 
-SlipSense: reads Thai bank-transfer slips (OCR) → parses fields → (later) categorizes and shows an expense dashboard. Currently in **Phase 1**: comparing OCR engines and building a baseline parser, measured per field on a hand-labeled slip set. `api/` and `web/` are Phase 2 placeholders (FastAPI, Next.js PWA).
+SlipSense: reads Thai bank-transfer slips (OCR) → parses fields → (later) categorizes and shows an expense dashboard. Currently in **Phase 1**: comparing OCR engines and building a baseline parser, measured per field on a hand-labeled slip set. `api/` is a Phase 2 placeholder (FastAPI). `web/` is a Next.js 16 + Tailwind v4 app with three screens on mock data (`web/src/lib/mock.ts`, fake only); `web/src/lib/types.ts` is the draft API contract, including per-field `confident` and `source: "qr"|"ocr"`, which mirrors `ParsedSlip` from `parse_slip_detailed`. UI is bilingual: routes live under `web/src/app/[lang]/` (`th`|`en`), strings in `web/src/i18n/th.ts` (source of truth; `en.ts` is typed against it), `src/proxy.ts` redirects locale-less paths. Client state lives in a module-level store read via `useSyncExternalStore` (`web/src/lib/store.tsx`), not in a provider: Next 16 keeps the previous locale's tree alive in `<Activity>`, so provider state would fork into two copies. Never hardcode UI text in components; use `useI18n()`. Next 16 differs from older versions: read `web/node_modules/next/dist/docs/` before writing Next code.
 
 The owner writes in Thai and wants answers in Thai, with the *reasoning* behind each decision explained, one phase at a time. Code comments and docstrings are in Thai.
 
@@ -20,6 +20,8 @@ macOS has no `python` command. The venv lives **outside the repo** at `~/.venvs/
 ~/.venvs/billreader/bin/python -m slipsense_ml.eval.run_qr                               # stage 1b: QR payloads → data/ocr_cache/_qr/ (needs extra `qr`)
 ~/.venvs/billreader/bin/python -m slipsense_ml.eval.score --engines tesseract easyocr     # stage 2: parse + score (dev split by default; adds <engine>+qr tables if _qr cache exists)
 ```
+
+Web: `cd web && npm run dev | lint | build` (CI job `web` runs lint + build; or start it from the preview launcher, config `web` in `.claude/launch.json`).
 
 OCR engines and QR decoding are optional extras in `ml/pyproject.toml` (`tesseract`, `easyocr`, `paddle`, `typhoon`, `gcv`, `qr`); install only what you run. PaddleOCR may need Python 3.11/3.12. CI (`.github/workflows/ci.yml`) only installs pytest: core code (`schema`, `parsing`, `eval`) must stay **stdlib-only**.
 

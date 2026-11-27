@@ -19,3 +19,21 @@ jobs:
       # ลงแค่ pytest: parser/metrics ใช้ stdlib ล้วน ไม่ต้องลง OCR หนัก ๆ ใน CI
       - run: pip install pytest
       - run: pytest -q
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      # npm ci: ติดตั้งตาม lock file เป๊ะ ๆ ให้ CI กับเครื่องเราได้ dependency ชุดเดียวกัน
+      - run: npm ci
+      - run: npm run lint
+      # build = type check + render ทุกหน้า จับหน้าพังได้ก่อน merge
+      - run: npm run build
