@@ -5,14 +5,17 @@ const bahtWhole = new Intl.NumberFormat("th-TH", { maximumFractionDigits: 0 });
 
 export const formatBaht = (n: number, whole = false) => (whole ? bahtWhole : baht).format(n);
 
+const TH_MONTHS = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", "มิ.ย.", "ก.ค.", "ส.ค.", "ก.ย.", "ต.ค.", "พ.ย.", "ธ.ค."];
+
 // วันที่แบบไทย พ.ศ. ย่อ เช่น "3 ม.ค. 69 09:15" — ตรงกับที่ผู้ใช้เห็นบนสลิป
+// แยกจากสตริงตรง ๆ ไม่ผ่าน Date: เวลาบนสลิปเป็นเวลาไทยอยู่แล้ว ถ้าแปลงผ่าน timezone ของเครื่อง
+// server กับเบราว์เซอร์อาจได้คนละค่า (hydration mismatch) หรือเวลาเลื่อนถ้าผู้ใช้อยู่ต่างประเทศ
 export function formatThaiDateTime(iso: string): string {
-  const d = new Date(iso);
-  const date = new Intl.DateTimeFormat("th-TH-u-ca-buddhist", {
-    day: "numeric", month: "short", year: "2-digit",
-  }).format(d);
-  const time = new Intl.DateTimeFormat("th-TH", { hour: "2-digit", minute: "2-digit", hour12: false }).format(d);
-  return `${date} ${time}`;
+  const m = /^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/.exec(iso);
+  if (!m) return iso;
+  const [, y, mo, d, hh, mm] = m;
+  const be = String(Number(y) + 543).slice(2);
+  return `${Number(d)} ${TH_MONTHS[Number(mo) - 1]} ${be} ${hh}:${mm}`;
 }
 
 export function displayField(name: FieldName, value: string | null): string {

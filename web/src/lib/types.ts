@@ -60,3 +60,14 @@ export const STATUS_LABELS: Record<SlipStatus, string> = {
   duplicate: "ซ้ำ ข้ามให้",
   unreadable: "อ่านไม่ได้",
 };
+
+// รายการที่ยืนยันแล้ว = สิ่งที่ dashboard ใช้คำนวณ (หลังยืนยัน รูปสลิปถูกทิ้ง เหลือแค่ข้อมูลนี้)
+export type Transaction = {
+  id: string;
+  paidAt: string; // ISO, เวลาไทย
+  amount: number;
+  receiver: string;
+  bank: Bank;
+  category: Category;
+  ref: string | null;
+};
