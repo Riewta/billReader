@@ -94,9 +94,15 @@ class Report:
     # key: (bank, field) — bank "ALL" คือรวมทุกธนาคาร
     e2e: dict[tuple[str, str], Tally] = field(default_factory=lambda: defaultdict(Tally))
     recall: dict[tuple[str, str], Tally] = field(default_factory=lambda: defaultdict(Tally))
+    # calibration: ในบรรดา field ที่ parser "มั่นใจ" ถูกกี่ % (ต้องใกล้ 100% เพราะหน้า review จะไม่ถามซ้ำ)
+    # key = field; total = จำนวนที่มั่นใจ, correct = มั่นใจแล้วถูก; n = จำนวน field ที่นับทั้งหมด
+    confident: dict[str, Tally] = field(default_factory=lambda: defaultdict(Tally))
     errors: list[dict] = field(default_factory=list)
 
-    def add(self, slip_id: str, bank: str, pred: SlipFields, gold: SlipFields, text: str) -> None:
+    def add(
+        self, slip_id: str, bank: str, pred: SlipFields, gold: SlipFields, text: str,
+        confident: dict[str, bool] | None = None,
+    ) -> None:
         for f in FIELDS:
             g = getattr(gold, f)
             if g is None:
@@ -106,8 +112,15 @@ class Report:
             for b in (bank, "ALL"):
                 self.e2e[(b, f)].total += 1
                 self.e2e[(b, f)].correct += ok
+            sure = bool(confident and confident.get(f))
+            if confident is not None and sure:
+                self.confident[f].total += 1
+                self.confident[f].correct += ok
             if not ok:
-                self.errors.append({"id": slip_id, "field": f, "pred": str(p), "gold": str(g)})
+                e = {"id": slip_id, "field": f, "pred": str(p), "gold": str(g)}
+                if confident is not None:
+                    e["confident"] = sure  # True = ผิดแบบเงียบ: แย่สุด ต้องดูก่อน
+                self.errors.append(e)
         for f, ok in ocr_recall(text, gold).items():
             for b in (bank, "ALL"):
                 self.recall[(b, f)].total += 1
@@ -129,7 +142,24 @@ def markdown_table(report: Report, title: str) -> str:
     rec_rows = [
         f"| {b} | " + " | ".join(_pct(report.recall.get((b, f))) for f in rec_fields) + " |" for b in banks
     ]
-    return "\n".join(
-        [f"### {title}", "", "**End-to-end field accuracy**", "", head, sep, *rows, "",
-         "**OCR recall (ค่าจริงปรากฏในข้อความ OCR)**", "", rec_head, rec_sep, *rec_rows, ""]
-    )
+    out = [f"### {title}", "", "**End-to-end field accuracy**", "", head, sep, *rows, "",
+           "**OCR recall (ค่าจริงปรากฏในข้อความ OCR)**", "", rec_head, rec_sep, *rec_rows, ""]
+    if report.confident or any(report.e2e):
+        out += calibration_table(report)
+    return "\n".join(out)
+
+
+def calibration_table(report: Report) -> list[str]:
+    """2 ตัวเลขที่ต้องดูคู่กัน:
+    - precision เมื่อมั่นใจ: ต่ำกว่า 100% = มีค่าผิดหลุดเข้า dashboard โดยไม่ถามผู้ใช้ (อันตราย)
+    - coverage: % ที่มั่นใจ = ผู้ใช้ไม่ต้องแตะ field นั้น (ยิ่งสูงยิ่งสบาย แต่ห้ามแลกกับ precision)
+    """
+    rows = []
+    for f in FIELDS:
+        n = report.e2e.get(("ALL", f))
+        c = report.confident.get(f, Tally())
+        if not n or not n.total:
+            continue
+        rows.append(f"| {f} | {_pct(c)} | {c.total / n.total:.0%} ({c.total}/{n.total}) |")
+    return ["**Calibration (field ที่ parser มั่นใจ)**", "",
+            "| field | ถูกเมื่อมั่นใจ | coverage |", "|---|---|---|", *rows, ""]

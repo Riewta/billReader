@@ -22,7 +22,7 @@ from slipsense_ml.eval.dataset import load_labels
 from slipsense_ml.eval.metrics import Report, markdown_table
 from slipsense_ml.eval.run_qr import QR_DIR
 from slipsense_ml.ocr import ENGINES
-from slipsense_ml.parsing.parser import parse_slip
+from slipsense_ml.parsing.parser import parse_slip_detailed
 
 
 def _qr_payload(cache_dir: str, slip_id: str) -> str | None:
@@ -45,8 +45,8 @@ def score_engine(
             continue  # ไม่ได้รัน (เช่น cloud_ok=false) -> ไม่นับ; ดู n ในตารางประกอบเสมอ
         ocr = json.loads(f.read_text(encoding="utf-8"))
         latencies.append(ocr["latency_s"])
-        pred = parse_slip(ocr["text"], _qr_payload(cache_dir, s.id) if use_qr else None)
-        report.add(s.id, s.gold.bank or "unknown", pred, s.gold, ocr["text"])
+        pred = parse_slip_detailed(ocr["text"], _qr_payload(cache_dir, s.id) if use_qr else None)
+        report.add(s.id, s.gold.bank or "unknown", pred.fields, s.gold, ocr["text"], pred.confident)
     return report, latencies
 
 
