@@ -55,7 +55,8 @@ export const th = {
     countReady: (n: number) => `พร้อม ${n}`,
     countReview: (n: number) => `ต้องตรวจ ${n}`,
     reading: "กำลังอ่าน…",
-    duplicateNote: "เลขอ้างอิงซ้ำกับรายการเดิม ข้ามให้แล้ว",
+    duplicateNote: "เลขอ้างอิงซ้ำกับรายการเดิม ไม่นับยอดซ้ำ",
+    remove: (file: string) => `เอา ${file} ออก`,
     confirmReady: (n: number) => `ยืนยัน ${n} รายการที่มั่นใจ`,
     reviewCta: (n: number) => `ตรวจ ${n} รายการที่ไม่แน่ใจ`,
   },
@@ -99,6 +100,7 @@ export const th = {
   toast: {
     confirmed: "ยืนยันแล้ว",
     confirmedMany: (n: number) => `ยืนยัน ${n} รายการ`,
+    removed: "เอาสลิปซ้ำออกแล้ว",
     undo: "เลิกทำ",
     close: "ปิด",
   },

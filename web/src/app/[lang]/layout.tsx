@@ -6,7 +6,6 @@ import { LOCALES, hasLocale } from "@/i18n/config";
 import { en } from "@/i18n/en";
 import { I18nProvider } from "@/i18n/provider";
 import { th } from "@/i18n/th";
-import { SlipsProvider } from "@/lib/store";
 import "../globals.css";
 
 // ฟอนต์ที่มีทั้งไทยและอังกฤษในชุดเดียว: ใช้ได้ทั้งสองภาษา หน้าตาไม่เปลี่ยนเวลาสลับ
@@ -49,9 +48,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
     <html lang={lang} className={`${thai.variable} h-full antialiased`}>
       <body className="min-h-full font-sans">
         <I18nProvider lang={lang}>
-          <SlipsProvider>
-            <AppShell>{children}</AppShell>
-          </SlipsProvider>
+          <AppShell>{children}</AppShell>
         </I18nProvider>
       </body>
     </html>

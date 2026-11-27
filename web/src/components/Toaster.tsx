@@ -26,7 +26,9 @@ export function Toaster() {
           className="pointer-events-auto flex items-center gap-3 rounded-xl bg-foreground py-2.5 pr-2 pl-4 text-sm text-background shadow-lg"
         >
           <CircleCheck className="size-4 shrink-0" aria-hidden />
-          <span>{toast.kind === "one" ? t.toast.confirmed : t.toast.confirmedMany(toast.n)}</span>
+          <span>
+            {toast.kind === "removed" ? t.toast.removed : toast.kind === "one" ? t.toast.confirmed : t.toast.confirmedMany(toast.n)}
+          </span>
           {toast.undo && (
             <button
               type="button"

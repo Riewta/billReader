@@ -55,7 +55,8 @@ export const en: Dictionary = {
     countReady: (n) => `Ready ${n}`,
     countReview: (n) => `To review ${n}`,
     reading: "Reading…",
-    duplicateNote: "Same reference as an existing transaction, skipped",
+    duplicateNote: "Same reference as an existing transaction, not counted twice",
+    remove: (file) => `Remove ${file}`,
     confirmReady: (n) => `Confirm ${n} confident`,
     reviewCta: (n) => `Review ${n} uncertain`,
   },
@@ -99,6 +100,7 @@ export const en: Dictionary = {
   toast: {
     confirmed: "Confirmed",
     confirmedMany: (n) => `Confirmed ${n}`,
+    removed: "Duplicate removed",
     undo: "Undo",
     close: "Close",
   },

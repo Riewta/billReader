@@ -2,34 +2,46 @@
 
 // state กลางของแอป (ชั่วคราว ก่อนมี API): ทุกหน้าอ่าน/แก้ที่เดียวกัน
 // ยืนยันสลิปในหน้าตรวจ -> badge ลด, ยอดใน dashboard เพิ่ม ทันที
-// ทำไม context ไม่ใช่ไลบรารี state: มีข้อมูลชุดเดียว ใช้ไม่กี่หน้า และจะถูกแทนด้วย API อยู่แล้ว
 // เก็บในหน่วยความจำเท่านั้น รีเฟรชแล้วรีเซ็ต — ตั้งใจ: ไม่เก็บข้อมูลการเงินในเบราว์เซอร์
+//
+// ทำไมเป็นตัวแปรระดับ module + useSyncExternalStore ไม่ใช่ useState ใน provider:
+// Next 16 ไม่ unmount หน้าภาษาเดิมตอนสลับ /th <-> /en แต่ซ่อนไว้ใน <Activity> พร้อม state ของมัน
+// ถ้า state อยู่ใน provider จะมีสองชุดแยกกัน: ยืนยันใน /en แล้วกลับ /th สลิปเดิมโผล่กลับมา (ยืนยันซ้ำ = นับยอดซ้ำ)
+// ข้อมูลชุดเดียวนอก React แก้ทั้งเรื่องนี้ และเรื่อง timer จำลอง OCR ที่ไปอัปเดต provider ที่ถูกซ่อน/ทิ้งไปแล้ว
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useSyncExternalStore } from "react";
 import { BASE_TRANSACTIONS, MOCK_SLIPS } from "./mock";
 import type { Bank, Category, FieldName, Slip, Transaction } from "./types";
 
 type Edits = Partial<Record<FieldName, string>>;
 
 // เก็บ "ชนิด" ของข้อความ ไม่ใช่ข้อความ: ให้ Toaster แปลตามภาษาที่เปิดอยู่ตอนแสดง
-type Toast = { id: number; kind: "one" | "many"; n: number; undo?: () => void };
+type Toast = { id: number; kind: "one" | "many" | "removed"; n: number; undo?: () => void };
 
-type Store = {
-  slips: Slip[];
-  transactions: Transaction[];
-  toast: Toast | null;
-  confirmSlip: (id: string, edits: Edits, category: Category) => void;
-  confirmAllReady: () => void;
-  addFiles: (names: string[]) => void;
-  dismissToast: () => void;
-};
+type State = { slips: Slip[]; transactions: Transaction[]; toast: Toast | null };
 
-const Ctx = createContext<Store | null>(null);
+const INITIAL: State = { slips: MOCK_SLIPS, transactions: BASE_TRANSACTIONS, toast: null };
+let state = INITIAL;
+const listeners = new Set<() => void>();
 
-// สลับภาษา = เปลี่ยน /th เป็น /en = root layout mount ใหม่ = state ใน React หาย
-// เก็บสำเนาไว้ระดับ module (อยู่ในหน่วยความจำของแท็บนี้เท่านั้น ไม่ลง storage) แล้วอ่านกลับตอน mount
-// รีเฟรชหน้าแล้วยังรีเซ็ตตามเดิม
-let memory: { slips: Slip[]; transactions: Transaction[] } | null = null;
+function update(fn: (s: State) => State) {
+  state = fn(state);
+  listeners.forEach((l) => l());
+}
+
+function subscribe(listener: () => void) {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+let nextId = 0;
+const newId = () => ++nextId;
+
+// เวลาจำลองต่อใบ (ของจริง ~7 วิ/ใบ ที่นี่เร่งให้ดูทัน)
+const OCR_FIRST_MS = 900;
+const OCR_EACH_MS = 700;
 
 function toTransaction(slip: Slip, edits: Edits = {}, category: Category = slip.category): Transaction {
   const v = (f: FieldName) => edits[f] ?? slip.fields[f].value;
@@ -44,94 +56,99 @@ function toTransaction(slip: Slip, edits: Edits = {}, category: Category = slip.
   };
 }
 
-// จำลองผล OCR ของไฟล์ที่เพิ่งเลือก: ใบคู่ "มั่นใจ" ใบคี่ "ต้องตรวจผู้รับ" — ให้เห็นทั้งสองแบบ
-function fakeOcr(id: string, fileName: string, n: number): Slip {
+// hash ชื่อไฟล์ -> ตัวเลขคงที่: ไฟล์เดิมได้ผล OCR เดิม (ref เดิม) เหมือนรูปเดิมของจริง
+// จึงลองอัปโหลดไฟล์เดิมซ้ำแล้วเห็นการกันสลิปซ้ำได้
+function hashName(name: string): number {
+  let h = 0;
+  for (const ch of name) h = (h * 31 + ch.charCodeAt(0)) % 10007;
+  return h;
+}
+
+// จำลองผล OCR: เลขคี่ "ต้องตรวจผู้รับ" เลขคู่ "มั่นใจ" — ให้เห็นทั้งสองแบบ
+function fakeOcr(id: string, fileName: string): Slip {
+  const n = hashName(fileName);
   const unsureReceiver = n % 2 === 1;
+  const pad = (x: number, w = 2) => String(x).padStart(w, "0");
   return {
     id, fileName, category: "food",
     status: unsureReceiver ? "needs_review" : "ready",
     fields: {
       bank: { value: "kbank", confident: true, source: "qr" },
-      amount: { value: (45 + n * 12).toFixed(2), confident: true, source: "ocr" },
-      paid_at: { value: `2026-01-21T${String(10 + (n % 10)).padStart(2, "0")}:${String((n * 7) % 60).padStart(2, "0")}`, confident: true, source: "ocr" },
+      amount: { value: (35 + (n % 40) * 5).toFixed(2), confident: true, source: "ocr" },
+      paid_at: { value: `2026-01-21T${pad(8 + (n % 12))}:${pad((n * 7) % 60)}`, confident: true, source: "ocr" },
       receiver_name: { value: unsureReceiver ? "ร้านอาหารทดสอบ" : "ร้านค้าทดสอบ", confident: !unsureReceiver, source: "ocr" },
-      ref: { value: `0159992100${String(n).padStart(2, "0")}BPP0${String(n).padStart(4, "0")}`, confident: true, source: "qr" },
+      ref: { value: `01599921${pad(n, 5)}BPP${pad(n, 5)}`, confident: true, source: "qr" },
     },
   };
 }
 
-export function SlipsProvider({ children }: { children: ReactNode }) {
-  const [slips, setSlips] = useState<Slip[]>(() => memory?.slips ?? MOCK_SLIPS);
-  const [transactions, setTransactions] = useState<Transaction[]>(() => memory?.transactions ?? BASE_TRANSACTIONS);
-  useEffect(() => {
-    memory = { slips, transactions };
-  }, [slips, transactions]);
-  const [toast, setToast] = useState<Toast | null>(null);
-  const seq = useRef(0);
+function showToast(kind: Toast["kind"], n: number, undo?: () => void) {
+  update((s) => ({ ...s, toast: { id: newId(), kind, n, undo } }));
+}
 
-  const showToast = useCallback((kind: Toast["kind"], n: number, undo?: () => void) => {
-    seq.current += 1;
-    setToast({ id: seq.current, kind, n, undo });
-  }, []);
+function finishOcr(id: string) {
+  update((s) => {
+    const slip = s.slips.find((x) => x.id === id);
+    if (!slip || slip.status !== "processing") return s;
+    const done = fakeOcr(id, slip.fileName);
+    // กันสลิปซ้ำด้วย ref: ซ้ำกับรายการที่ยืนยันแล้ว หรือสลิปอื่นที่อ่านเสร็จแล้ว -> ไม่นับยอดซ้ำ
+    const ref = done.fields.ref.value;
+    const dup =
+      s.transactions.some((t) => t.ref === ref) ||
+      s.slips.some((x) => x.id !== id && x.status !== "processing" && x.fields.ref.value === ref);
+    const next: Slip = { ...done, status: dup ? "duplicate" : done.status };
+    return { ...s, slips: s.slips.map((x) => (x.id === id ? next : x)) };
+  });
+}
 
-  const confirmSlip = useCallback(
-    (id: string, edits: Edits, category: Category) => {
-      const slip = slips.find((s) => s.id === id);
-      if (!slip) return;
-      const tx = toTransaction(slip, edits, category);
-      setSlips((all) => all.filter((s) => s.id !== id));
-      setTransactions((all) => [...all, tx]);
-      // undo สำคัญกว่าปุ่ม "แน่ใจไหม?": ผู้ใช้ยืนยันเร็วได้โดยไม่กลัวพลาด
-      showToast("one", 1, () => {
-        setSlips((all) => [slip, ...all]);
-        setTransactions((all) => all.filter((t) => t.id !== tx.id));
-      });
-    },
-    [slips, showToast],
-  );
+const actions = {
+  confirmSlip(id: string, edits: Edits, category: Category) {
+    const slip = state.slips.find((s) => s.id === id);
+    if (!slip) return;
+    const tx = toTransaction(slip, edits, category);
+    update((s) => ({ ...s, slips: s.slips.filter((x) => x.id !== id), transactions: [...s.transactions, tx] }));
+    // undo สำคัญกว่าปุ่ม "แน่ใจไหม?": ผู้ใช้ยืนยันเร็วได้โดยไม่กลัวพลาด
+    showToast("one", 1, () =>
+      update((s) => ({ ...s, slips: [slip, ...s.slips], transactions: s.transactions.filter((t) => t.id !== tx.id) })),
+    );
+  },
 
-  const confirmAllReady = useCallback(() => {
-    const ready = slips.filter((s) => s.status === "ready");
+  confirmAllReady() {
+    const ready = state.slips.filter((s) => s.status === "ready");
     if (ready.length === 0) return;
     const txs = ready.map((s) => toTransaction(s));
     const ids = new Set(ready.map((s) => s.id));
-    setSlips((all) => all.filter((s) => !ids.has(s.id)));
-    setTransactions((all) => [...all, ...txs]);
-    showToast("many", ready.length, () => {
-      setSlips((all) => [...ready, ...all]);
-      const txIds = new Set(txs.map((t) => t.id));
-      setTransactions((all) => all.filter((t) => !txIds.has(t.id)));
-    });
-  }, [slips, showToast]);
+    const txIds = new Set(txs.map((t) => t.id));
+    update((s) => ({ ...s, slips: s.slips.filter((x) => !ids.has(x.id)), transactions: [...s.transactions, ...txs] }));
+    showToast("many", ready.length, () =>
+      update((s) => ({ ...s, slips: [...ready, ...s.slips], transactions: s.transactions.filter((t) => !txIds.has(t.id)) })),
+    );
+  },
 
-  const addFiles = useCallback((names: string[]) => {
-    const created = names.map((name) => {
-      seq.current += 1;
-      return { id: `u${seq.current}`, name, n: seq.current };
-    });
-    setSlips((all) => [
-      ...created.map(({ id, name }) => ({ ...fakeOcr(id, name, 0), status: "processing" as const })),
-      ...all,
-    ]);
-    // จำลองว่า OCR เสร็จทีละใบ (ของจริง ~7 วิ/ใบ ที่นี่เร่งให้ดูทัน)
-    created.forEach(({ id, name, n }, i) => {
-      setTimeout(() => {
-        setSlips((all) => all.map((s) => (s.id === id ? fakeOcr(id, name, n) : s)));
-      }, 900 + i * 700);
-    });
-  }, []);
+  addFiles(names: string[]) {
+    const created = names.map((name) => ({ ...fakeOcr(`u${newId()}`, name), status: "processing" as const }));
+    update((s) => ({ ...s, slips: [...created, ...s.slips] }));
+    // timer อยู่นอก React: สลับภาษา/เปลี่ยนหน้ากลางคันก็ยังอ่านเสร็จ
+    created.forEach(({ id }, i) => setTimeout(() => finishOcr(id), OCR_FIRST_MS + i * OCR_EACH_MS));
+  },
 
-  const dismissToast = useCallback(() => setToast(null), []);
+  removeSlip(id: string) {
+    const index = state.slips.findIndex((s) => s.id === id);
+    if (index < 0) return;
+    const slip = state.slips[index];
+    update((s) => ({ ...s, slips: s.slips.filter((x) => x.id !== id) }));
+    showToast("removed", 1, () =>
+      update((s) => ({ ...s, slips: [...s.slips.slice(0, index), slip, ...s.slips.slice(index)] })),
+    );
+  },
 
-  const value = useMemo(
-    () => ({ slips, transactions, toast, confirmSlip, confirmAllReady, addFiles, dismissToast }),
-    [slips, transactions, toast, confirmSlip, confirmAllReady, addFiles, dismissToast],
-  );
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-}
+  dismissToast() {
+    update((s) => (s.toast ? { ...s, toast: null } : s));
+  },
+};
 
-export function useSlips(): Store {
-  const s = useContext(Ctx);
-  if (!s) throw new Error("useSlips ต้องอยู่ใต้ <SlipsProvider>");
-  return s;
+export function useSlips(): State & typeof actions {
+  // server render และ hydration ใช้ INITIAL เสมอ -> HTML ตรงกับฝั่ง client ไม่เกิด hydration mismatch
+  const s = useSyncExternalStore(subscribe, () => state, () => INITIAL);
+  return { ...s, ...actions };
 }

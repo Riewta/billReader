@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, CircleCheck, Copy, FileImage, ImageUp, LoaderCircle, Lock, TriangleAlert } from "lucide-react";
+import { ArrowRight, CircleCheck, Copy, FileImage, ImageUp, LoaderCircle, Lock, TriangleAlert, X } from "lucide-react";
 import Link from "next/link";
 import { useRef, useState, type DragEvent } from "react";
 import { StatusPill } from "@/components/StatusPill";
@@ -19,7 +19,7 @@ const STATUS_ICON: Record<SlipStatus, typeof CircleCheck> = {
 // หน้าอัปโหลด: เลือกได้หลายรูป แล้ว "ไม่ต้องรอ" — OCR ใช้ ~7 วิ/ใบบน CPU
 // ยังไม่มี API: ไฟล์ที่เลือกไม่ถูกส่งไปไหน ใช้แค่ชื่อไฟล์ แล้วจำลองผล OCR
 export default function UploadPage() {
-  const { slips, addFiles, confirmAllReady } = useSlips();
+  const { slips, addFiles, confirmAllReady, removeSlip } = useSlips();
   const { t, href, baht } = useI18n();
   const u = t.upload;
   const [dragging, setDragging] = useState(false);
@@ -117,6 +117,18 @@ export default function UploadPage() {
                   <StatusPill status={s.status}>
                     <Icon className={`size-3.5 ${s.status === "processing" ? "animate-spin" : ""}`} aria-hidden />
                   </StatusPill>
+                  {/* สลิปซ้ำไม่มีอะไรให้ทำต่อ: ให้เอาออกได้ ไม่งั้นค้างในรายการตลอด */}
+                  {s.status === "duplicate" && (
+                    <button
+                      type="button"
+                      onClick={() => removeSlip(s.id)}
+                      aria-label={u.remove(s.fileName)}
+                      title={u.remove(s.fileName)}
+                      className="-mr-2 rounded-lg p-1.5 text-muted hover:bg-background hover:text-foreground"
+                    >
+                      <X className="size-4" aria-hidden />
+                    </button>
+                  )}
                 </li>
               );
             })}
