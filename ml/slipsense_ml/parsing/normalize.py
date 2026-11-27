@@ -19,12 +19,15 @@ _MONTHS_TH = ["ม.ค.", "ก.พ.", "มี.ค.", "เม.ย.", "พ.ค.", 
 _MONTHS_TH_FULL = ["มกราคม", "กุมภาพันธ์", "มีนาคม", "เมษายน", "พฤษภาคม", "มิถุนายน",
                    "กรกฎาคม", "สิงหาคม", "กันยายน", "ตุลาคม", "พฤศจิกายน", "ธันวาคม"]
 _MONTHS_EN = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"]
+_MONTHS_EN_FULL = ["january", "february", "march", "april", "may", "june", "july", "august",
+                   "september", "october", "november", "december"]
 
 
 def _month_table() -> dict[str, int]:
     t: dict[str, int] = {}
-    for i, (abbr, full, en) in enumerate(zip(_MONTHS_TH, _MONTHS_TH_FULL, _MONTHS_EN), 1):
-        t[abbr] = t[abbr.replace(".", "")] = t[full] = t[en] = i
+    for i, (abbr, full, en, en_full) in enumerate(zip(_MONTHS_TH, _MONTHS_TH_FULL, _MONTHS_EN, _MONTHS_EN_FULL), 1):
+        t[abbr] = t[abbr.replace(".", "")] = t[full] = t[en] = t[en_full] = i
+    t["sept"] = 9  # บางแอปย่อ September เป็น 4 ตัว
     return t
 
 
@@ -37,7 +40,10 @@ def normalize_text(s: str) -> str:
     s = s.replace("​", "")  # zero-width space ที่ OCR บางตัวแทรก
     # "พ. ย." -> "พ.ย." : ยุบช่องว่างระหว่างอักษรไทยตัวเดียวกับจุด
     s = re.sub(r"(?<=[ก-ฮ]\.)\s+(?=[ก-ฮ]{1,2}\.)", "", s)
-    s = re.sub(r"[ \t]+", " ", s)
+    # ช่องว่างยาวยุบเหลือ 2 ไม่ใช่ 1: เป็นสัญญาณว่า "คนละคอลัมน์" (tesseract วางขยะจากไอคอนไว้ข้างชื่อ)
+    # parser ใช้แยกชื่อออกจากขยะ; regex อื่นใช้ \s* / \s+ อยู่แล้วจึงไม่กระทบ
+    s = s.replace("\t", " ")
+    s = re.sub(r" {2,}", "  ", s)
     return s.strip()
 
 

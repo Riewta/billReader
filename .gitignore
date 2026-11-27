@@ -3,6 +3,8 @@ data/raw/
 data/labels.jsonl
 data/*.bak
 data/ocr_cache/
+# รายการที่ผิดมีชื่อผู้รับ/เลขอ้างอิงจริง — commit ได้เฉพาะตัวเลขรวม (benchmark_*.md)
+results/errors_*.jsonl
 *.jpg
 *.jpeg
 *.png

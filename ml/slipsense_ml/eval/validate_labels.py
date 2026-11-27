@@ -175,13 +175,14 @@ def assign_splits(records: list[dict], test_ratio: float = TEST_RATIO) -> int:
 
 
 def summary(records: list[dict]) -> str:
-    c = Counter((r.get("bank"), r.get("split", "dev")) for r in records)
+    # ใบที่ไม่มี split ต้องโชว์แยกเป็น "ยังไม่แบ่ง" ไม่ใช่นับรวมใน dev (กฎเดียวกับ load_labels)
+    c = Counter((r.get("bank"), r.get("split")) for r in records)
     kinds = Counter(r.get("kind") for r in records)
     banks = sorted({b for b, _ in c if b})
-    lines = ["| bank | dev | test | รวม |", "|---|---|---|---|"]
+    lines = ["| bank | dev | test | ยังไม่แบ่ง | รวม |", "|---|---|---|---|---|"]
     for b in banks:
-        d, t = c[(b, "dev")], c[(b, "test")]
-        lines.append(f"| {b} | {d} | {t} | {d + t} |")
+        d, t, u = c[(b, "dev")], c[(b, "test")], c[(b, None)]
+        lines.append(f"| {b} | {d} | {t} | {u} | {d + t + u} |")
     lines.append("")
     lines.append("kind: " + ", ".join(f"{k or 'ไม่ระบุ'}={n}" for k, n in kinds.most_common()))
     return "\n".join(lines)

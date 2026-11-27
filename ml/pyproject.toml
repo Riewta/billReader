@@ -13,6 +13,7 @@ easyocr = ["easyocr>=1.7"]
 paddle = ["paddleocr>=3.0", "paddlepaddle>=3.0"]
 typhoon = ["typhoon-ocr"]
 gcv = ["google-cloud-vision>=3.7"]
+qr = ["opencv-python-headless>=4.8"]  # ถอด QR บนสลิป -> ref + ธนาคาร
 
 [build-system]
 requires = ["setuptools>=68"]

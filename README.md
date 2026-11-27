@@ -21,28 +21,48 @@ api/  web/            Phase 2
 ```bash
 # venv อยู่นอก repo: repo อยู่บน Desktop ที่ iCloud sync ซึ่งจะซ่อนไฟล์ใน .venv/ จน Python 3.13 import ไม่ได้
 python3 -m venv ~/.venvs/billreader && source ~/.venvs/billreader/bin/activate
-pip install -e "ml[dev,tesseract,easyocr]"     # เลือก extras ตาม engine ที่จะลอง
+pip install -e "ml[dev,tesseract,easyocr,qr]"  # เลือก extras ตาม engine ที่จะลอง (qr = ถอด QR บนสลิป)
 brew install tesseract tesseract-lang           # ถ้าใช้ tesseract
 
 # 1) ใส่รูปใน data/raw/ และเขียน data/labels.jsonl (ดู data/README.md)
 # 2) รัน OCR ครั้งเดียว ผลถูก cache ไว้
 python -m slipsense_ml.eval.run_ocr --engine tesseract
 python -m slipsense_ml.eval.run_ocr --engine easyocr
+python -m slipsense_ml.eval.run_qr                # ถอด QR: ได้ ref + ธนาคารแบบตรงตัว (CRC ตรวจแล้ว)
 # 3) วน แก้ parser -> score ได้เร็ว ไม่ต้องรัน OCR ใหม่
 python -m slipsense_ml.eval.score --engines tesseract easyocr
 pytest -q
 ```
 
 ## ผลเทียบ OCR
-_(ยังไม่มี — ตัวเลขจะมาจาก results/benchmark_test.md (test split) เท่านั้น)_
+ตัวเลขจาก test split ([results/benchmark_test.md](results/benchmark_test.md)) ซึ่งไม่เคยใช้ปรับ parser
+**n=7 (KBank 6, SCB 1) ยังน้อยมาก**: 1 ใบ = 14% ใช้ดูทิศทาง ไม่ใช่ตัวเลขสุดท้าย · `+QR` = ref และธนาคารอ่านจาก QR บนสลิป
 
-| engine | รันที่ | ค่าใช้จ่าย / 1k รูป | amount | paid_at | receiver | ref | median latency |
-|---|---|---|---|---|---|---|---|
-| Tesseract | เครื่อง | ฟรี | | | | | |
-| EasyOCR | เครื่อง | ฟรี | | | | | |
-| PaddleOCR | เครื่อง | ฟรี | | | | | |
-| Typhoon OCR | cloud/GPU | free tier | | | | | |
-| Google Vision | cloud | ~$1.5 (ฟรี 1k แรก/เดือน) | | | | | |
+| engine | รันที่ | ค่าใช้จ่าย / 1k รูป | bank | amount | paid_at | receiver | ref | median latency |
+|---|---|---|---|---|---|---|---|---|
+| Tesseract | เครื่อง | ฟรี | 71% | 86% | 86% | 43% | 57% | 0.46s |
+| Tesseract + QR | เครื่อง | ฟรี | 100% | 86% | 86% | 43% | 100% | 0.46s |
+| EasyOCR | เครื่อง | ฟรี | 100% | 100% | 100% | 86% | 71% | 7.2s |
+| EasyOCR + QR | เครื่อง | ฟรี | 100% | 100% | 100% | 86% | 100% | 7.2s |
+| PaddleOCR | เครื่อง | ฟรี | | | | | | |
+| Typhoon OCR | cloud/GPU | free tier | | | | | | |
+| Google Vision | cloud | ~$1.5 (ฟรี 1k แรก/เดือน) | | | | | | |
+
+### ความมั่นใจราย field (calibration)
+parser บอกด้วยว่า "มั่นใจ" field ไหน (`parse_slip_detailed`) field ที่ไม่มั่นใจจะถูกส่งให้ผู้ใช้ดูในหน้า review
+สิ่งที่ห้ามเกิดคือ **มั่นใจแล้วผิด** เพราะค่าผิดจะเข้า dashboard โดยไม่มีใครเห็น
+
+| field (EasyOCR + QR, test n=7) | ถูกเมื่อมั่นใจ | coverage (ไม่ต้องให้ผู้ใช้ดู) |
+|---|---|---|
+| bank, ref (จาก QR) | 100% | 100% |
+| amount | 100% | 100% |
+| paid_at | 100% | 100% |
+| receiver | **83% (5/6)** | 86% |
+
+- ธนาคารและ ref ที่อ่านจาก OCR (ไม่มี QR) ถูกตั้งเป็นไม่มั่นใจเสมอ: OCR สับสน 0/O, 8/B แบบที่มองไม่ออก
+- **ผู้รับ: มีใบที่มั่นใจแล้วผิด 1 ใบใน test** กติกาปัจจุบัน (โครง เลขบัญชี → ชื่อ → เลขบัญชี และไม่ต้องตัดขยะ) ได้ 0 ผิดบน dev แต่ไม่ generalize
+  ตั้งใจไม่แก้กติกาจากผล test นี้ (ถ้าแก้ตาม test ตัวเลข test จะหมดความหมาย) ต้องเก็บสลิปเพิ่มใน dev แล้วปรับจากตรงนั้น
+  ก่อนเปิดให้ผู้ใช้จริง ถ้ายังไม่ได้แก้ ให้ตั้งผู้รับเป็นไม่มั่นใจเสมอ
 
 ## Privacy
 สลิปจริงไม่เคยถูก commit · engine ที่เป็น cloud จะข้ามสลิปที่ `cloud_ok=false` · ดู [data/README.md](data/README.md)
