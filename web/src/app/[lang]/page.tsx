@@ -4,16 +4,18 @@ import { ChevronRight, Repeat, ScanSearch } from "lucide-react";
 import Link from "next/link";
 import { useMemo } from "react";
 import { CategoryIcon } from "@/components/CategoryIcon";
-import { formatBaht, formatThaiDateTime } from "@/lib/format";
+import { useI18n } from "@/i18n/provider";
 import { MONTH, RECURRING_RECEIVERS, TODAY } from "@/lib/mock";
 import { useSlips } from "@/lib/store";
-import { CATEGORY_LABELS, type Category } from "@/lib/types";
+import type { Category } from "@/lib/types";
 import { CATEGORY_META } from "@/lib/categories";
 
 // Dashboard ตอบคำถามเดียวก่อน: "เดือนนี้ใช้ไปเท่าไร เทียบงบแล้วโอเคไหม"
 // ทุกตัวเลขคำนวณจากรายการที่ยืนยันแล้ว — ยืนยันสลิปใหม่ ตัวเลขขยับทันที
 export default function DashboardPage() {
   const { transactions, slips } = useSlips();
+  const { lang, t, href, baht, dateTime } = useI18n();
+  const d = t.dashboard;
   const toReview = slips.filter((s) => s.status === "needs_review").length;
 
   const s = useMemo(() => {
@@ -51,35 +53,33 @@ export default function DashboardPage() {
     <div className="space-y-6">
       <header className="flex items-end justify-between gap-4">
         <div>
-          <p className="text-sm text-muted">{MONTH.label}</p>
-          <h1 className="text-2xl font-medium tracking-tight">ภาพรวม</h1>
+          <p className="text-sm text-muted">{MONTH.label[lang]}</p>
+          <h1 className="text-2xl font-medium tracking-tight">{d.title}</h1>
         </div>
         <Link
-          href="/upload"
+          href={href("/upload")}
           className="hidden rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white hover:opacity-90 md:block dark:text-background"
         >
-          อัปโหลดสลิป
+          {d.uploadCta}
         </Link>
       </header>
 
       {toReview > 0 && (
         <Link
-          href="/review"
+          href={href("/review")}
           className="flex items-center gap-3 rounded-xl border border-warn-border bg-warn-soft px-4 py-3 text-sm text-warn transition-opacity hover:opacity-90"
         >
           <ScanSearch className="size-5 shrink-0" aria-hidden />
-          <span className="flex-1">
-            มี <span className="font-medium">{toReview} สลิป</span> รอตรวจ ยังไม่ถูกนับในยอดด้านล่าง
-          </span>
+          <span className="flex-1">{d.pendingBanner(toReview)}</span>
           <ChevronRight className="size-4" aria-hidden />
         </Link>
       )}
 
       <div className="grid gap-4 md:grid-cols-3">
         <section className="rounded-2xl border border-border bg-surface p-5 md:col-span-2">
-          <p className="text-sm text-muted">ใช้ไปแล้วเดือนนี้</p>
+          <p className="text-sm text-muted">{d.spent}</p>
           <p className="mt-1 text-4xl font-medium tracking-tight tabular-nums">
-            ฿{formatBaht(s.spent, true)}
+            {baht(s.spent, true)}
           </p>
           <div
             className="mt-4 h-2.5 overflow-hidden rounded-full bg-background"
@@ -87,7 +87,7 @@ export default function DashboardPage() {
             aria-valuenow={Math.min(pct, 100)}
             aria-valuemin={0}
             aria-valuemax={100}
-            aria-label="สัดส่วนงบที่ใช้"
+            aria-label={d.budgetLabel}
           >
             <div
               className={`h-full rounded-full transition-[width] duration-500 ${over ? "bg-warn" : "bg-accent"}`}
@@ -95,21 +95,21 @@ export default function DashboardPage() {
             />
           </div>
           <div className="mt-2 flex justify-between text-xs text-muted">
-            <span>{pct}% ของงบ</span>
-            <span>งบ ฿{formatBaht(MONTH.budget, true)}</span>
+            <span>{d.budgetUsed(pct)}</span>
+            <span>{d.budget(baht(MONTH.budget, true))}</span>
           </div>
         </section>
 
         <section className="grid grid-cols-2 gap-4 md:grid-cols-1">
-          <Stat label="เหลือใช้ได้" value={`฿${formatBaht(Math.max(0, remaining), true)}`} />
-          <Stat label={`ใช้ได้ต่อวัน (${daysLeft} วันที่เหลือ)`} value={`฿${formatBaht(perDayLeft, true)}`} />
+          <Stat label={d.remaining} value={baht(Math.max(0, remaining), true)} />
+          <Stat label={d.perDay(daysLeft)} value={baht(perDayLeft, true)} />
         </section>
       </div>
 
       <section className="rounded-2xl border border-border bg-surface p-5">
         <div className="flex items-baseline justify-between">
-          <h2 className="font-medium">รายวัน</h2>
-          <p className="text-xs text-muted">{s.count} รายการ</p>
+          <h2 className="font-medium">{d.daily}</h2>
+          <p className="text-xs text-muted">{d.txCount(s.count)}</p>
         </div>
         <div className="mt-4 flex h-32 items-end gap-[3px]">
           {s.daily.map((v, i) => {
@@ -124,7 +124,7 @@ export default function DashboardPage() {
                 />
                 {!future && (
                   <span className="pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 -translate-x-1/2 rounded bg-foreground px-1.5 py-0.5 text-[11px] whitespace-nowrap text-background opacity-0 group-hover:opacity-100">
-                    {i + 1} ม.ค. · ฿{formatBaht(v, true)}
+                    {d.dayTip(i + 1, baht(v, true))}
                   </span>
                 )}
               </div>
@@ -140,16 +140,16 @@ export default function DashboardPage() {
 
       <div className="grid gap-4 md:grid-cols-2">
         <section className="rounded-2xl border border-border bg-surface p-5">
-          <h2 className="font-medium">ตามหมวด</h2>
+          <h2 className="font-medium">{d.byCategory}</h2>
           {/* แถบแนวนอนเรียงมากไปน้อย: อ่านชื่อหมวดไทยได้เต็ม และเทียบขนาดง่ายกว่า pie */}
           <ul className="mt-4 space-y-3.5">
             {s.categories.map(([cat, amount]) => (
               <li key={cat}>
                 <div className="flex items-center gap-2.5 text-sm">
                   <CategoryIcon category={cat} size="sm" />
-                  <span className="flex-1">{CATEGORY_LABELS[cat]}</span>
+                  <span className="flex-1">{t.categories[cat]}</span>
                   <span className="text-xs text-muted">{Math.round((amount / s.spent) * 100)}%</span>
-                  <span className="w-16 text-right tabular-nums">฿{formatBaht(amount, true)}</span>
+                  <span className="w-16 text-right tabular-nums">{baht(amount, true)}</span>
                 </div>
                 <div className="mt-1.5 ml-[34px] h-1.5 overflow-hidden rounded-full bg-background">
                   <div
@@ -163,16 +163,16 @@ export default function DashboardPage() {
         </section>
 
         <section className="rounded-2xl border border-border bg-surface p-5">
-          <h2 className="font-medium">รายการล่าสุด</h2>
+          <h2 className="font-medium">{d.recent}</h2>
           <ul className="mt-2 divide-y divide-border">
-            {s.recent.map((t) => (
-              <li key={t.id} className="flex items-center gap-3 py-2.5">
-                <CategoryIcon category={t.category} />
+            {s.recent.map((tx) => (
+              <li key={tx.id} className="flex items-center gap-3 py-2.5">
+                <CategoryIcon category={tx.category} />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm">{t.receiver}</p>
-                  <p className="text-xs text-muted">{formatThaiDateTime(t.paidAt)}</p>
+                  <p className="truncate text-sm">{tx.receiver}</p>
+                  <p className="text-xs text-muted">{dateTime(tx.paidAt)}</p>
                 </div>
-                <span className="text-sm tabular-nums">−฿{formatBaht(t.amount)}</span>
+                <span className="text-sm tabular-nums">−{baht(tx.amount)}</span>
               </li>
             ))}
           </ul>
@@ -180,22 +180,22 @@ export default function DashboardPage() {
       </div>
 
       <section className="rounded-2xl border border-border bg-surface p-5">
-        <h2 className="font-medium">จ่ายบ่อยสุด</h2>
+        <h2 className="font-medium">{d.top}</h2>
         <ul className="mt-2 grid gap-x-8 divide-y divide-border md:grid-cols-2 md:divide-y-0">
           {s.top.map(([name, r]) => (
             <li key={name} className="flex items-center justify-between gap-3 py-2.5 text-sm">
               <div className="min-w-0">
                 <p className="truncate">{name}</p>
-                <p className="text-xs text-muted">{r.count} ครั้ง</p>
+                <p className="text-xs text-muted">{d.times(r.count)}</p>
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {RECURRING_RECEIVERS.has(name) && (
                   <span className="flex items-center gap-1 rounded-md bg-accent-soft px-1.5 py-0.5 text-xs text-accent">
                     <Repeat className="size-3" aria-hidden />
-                    ทุกเดือน
+                    {d.monthly}
                   </span>
                 )}
-                <span className="tabular-nums">฿{formatBaht(r.total, true)}</span>
+                <span className="tabular-nums">{baht(r.total, true)}</span>
               </div>
             </li>
           ))}

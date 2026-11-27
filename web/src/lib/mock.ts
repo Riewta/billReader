@@ -9,7 +9,7 @@ const unsure = (value: string | null): FieldValue => ({ value, confident: false,
 
 // "วันนี้" ของข้อมูลจำลอง: ตรึงไว้ ให้หน้าจอเหมือนเดิมทุกครั้งที่เปิด (ไม่ขึ้นกับนาฬิกาเครื่อง)
 export const TODAY = "2026-01-21";
-export const MONTH = { key: "2026-01", label: "มกราคม 2569", budget: 15000 };
+export const MONTH = { key: "2026-01", label: { th: "มกราคม 2569", en: "January 2026" }, budget: 15000 };
 
 // สลิปรอบล่าสุดที่เพิ่งอัปโหลด (ยังไม่ยืนยัน)
 export const MOCK_SLIPS: Slip[] = [

@@ -5,13 +5,14 @@
 // ทำไม context ไม่ใช่ไลบรารี state: มีข้อมูลชุดเดียว ใช้ไม่กี่หน้า และจะถูกแทนด้วย API อยู่แล้ว
 // เก็บในหน่วยความจำเท่านั้น รีเฟรชแล้วรีเซ็ต — ตั้งใจ: ไม่เก็บข้อมูลการเงินในเบราว์เซอร์
 
-import { createContext, useCallback, useContext, useMemo, useRef, useState, type ReactNode } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { BASE_TRANSACTIONS, MOCK_SLIPS } from "./mock";
 import type { Bank, Category, FieldName, Slip, Transaction } from "./types";
 
 type Edits = Partial<Record<FieldName, string>>;
 
-type Toast = { id: number; message: string; undo?: () => void };
+// เก็บ "ชนิด" ของข้อความ ไม่ใช่ข้อความ: ให้ Toaster แปลตามภาษาที่เปิดอยู่ตอนแสดง
+type Toast = { id: number; kind: "one" | "many"; n: number; undo?: () => void };
 
 type Store = {
   slips: Slip[];
@@ -25,13 +26,18 @@ type Store = {
 
 const Ctx = createContext<Store | null>(null);
 
+// สลับภาษา = เปลี่ยน /th เป็น /en = root layout mount ใหม่ = state ใน React หาย
+// เก็บสำเนาไว้ระดับ module (อยู่ในหน่วยความจำของแท็บนี้เท่านั้น ไม่ลง storage) แล้วอ่านกลับตอน mount
+// รีเฟรชหน้าแล้วยังรีเซ็ตตามเดิม
+let memory: { slips: Slip[]; transactions: Transaction[] } | null = null;
+
 function toTransaction(slip: Slip, edits: Edits = {}, category: Category = slip.category): Transaction {
   const v = (f: FieldName) => edits[f] ?? slip.fields[f].value;
   return {
     id: `tx-${slip.id}`,
     paidAt: v("paid_at") ?? new Date().toISOString(),
     amount: Number(v("amount") ?? 0),
-    receiver: v("receiver_name") ?? "ไม่ทราบผู้รับ",
+    receiver: v("receiver_name") ?? "—",
     bank: (v("bank") ?? "kbank") as Bank,
     category,
     ref: v("ref"),
@@ -55,14 +61,17 @@ function fakeOcr(id: string, fileName: string, n: number): Slip {
 }
 
 export function SlipsProvider({ children }: { children: ReactNode }) {
-  const [slips, setSlips] = useState<Slip[]>(MOCK_SLIPS);
-  const [transactions, setTransactions] = useState<Transaction[]>(BASE_TRANSACTIONS);
+  const [slips, setSlips] = useState<Slip[]>(() => memory?.slips ?? MOCK_SLIPS);
+  const [transactions, setTransactions] = useState<Transaction[]>(() => memory?.transactions ?? BASE_TRANSACTIONS);
+  useEffect(() => {
+    memory = { slips, transactions };
+  }, [slips, transactions]);
   const [toast, setToast] = useState<Toast | null>(null);
   const seq = useRef(0);
 
-  const showToast = useCallback((message: string, undo?: () => void) => {
+  const showToast = useCallback((kind: Toast["kind"], n: number, undo?: () => void) => {
     seq.current += 1;
-    setToast({ id: seq.current, message, undo });
+    setToast({ id: seq.current, kind, n, undo });
   }, []);
 
   const confirmSlip = useCallback(
@@ -73,7 +82,7 @@ export function SlipsProvider({ children }: { children: ReactNode }) {
       setSlips((all) => all.filter((s) => s.id !== id));
       setTransactions((all) => [...all, tx]);
       // undo สำคัญกว่าปุ่ม "แน่ใจไหม?": ผู้ใช้ยืนยันเร็วได้โดยไม่กลัวพลาด
-      showToast("ยืนยันแล้ว", () => {
+      showToast("one", 1, () => {
         setSlips((all) => [slip, ...all]);
         setTransactions((all) => all.filter((t) => t.id !== tx.id));
       });
@@ -88,7 +97,7 @@ export function SlipsProvider({ children }: { children: ReactNode }) {
     const ids = new Set(ready.map((s) => s.id));
     setSlips((all) => all.filter((s) => !ids.has(s.id)));
     setTransactions((all) => [...all, ...txs]);
-    showToast(`ยืนยัน ${ready.length} รายการ`, () => {
+    showToast("many", ready.length, () => {
       setSlips((all) => [...ready, ...all]);
       const txIds = new Set(txs.map((t) => t.id));
       setTransactions((all) => all.filter((t) => !txIds.has(t.id)));

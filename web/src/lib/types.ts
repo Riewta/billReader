@@ -26,40 +26,9 @@ export type Slip = {
   category: Category;
 };
 
-export const FIELD_LABELS: Record<FieldName, string> = {
-  bank: "ธนาคาร",
-  amount: "ยอดเงิน",
-  paid_at: "วันเวลา",
-  receiver_name: "ผู้รับ",
-  ref: "เลขอ้างอิง",
-};
 
-export const BANK_LABELS: Record<Bank, string> = {
-  kbank: "กสิกรไทย",
-  scb: "ไทยพาณิชย์",
-  ktb: "กรุงไทย",
-  bbl: "กรุงเทพ",
-  krungsri: "กรุงศรี",
-  ttb: "ttb",
-  gsb: "ออมสิน",
-};
 
-export const CATEGORY_LABELS: Record<Category, string> = {
-  food: "อาหาร",
-  transport: "เดินทาง",
-  shopping: "ช้อปปิ้ง",
-  bills: "บิล",
-  transfer: "โอนให้คน",
-  other: "อื่น ๆ",
-};
 
-export const STATUS_LABELS: Record<SlipStatus, string> = {
-  processing: "กำลังอ่าน…",
-  ready: "อ่านแล้ว",
-  needs_review: "ต้องตรวจ",
-  duplicate: "ซ้ำ ข้ามให้",
-  unreadable: "อ่านไม่ได้",
-};
 
 // รายการที่ยืนยันแล้ว = สิ่งที่ dashboard ใช้คำนวณ (หลังยืนยัน รูปสลิปถูกทิ้ง เหลือแค่ข้อมูลนี้)
 export type Transaction = {

@@ -4,7 +4,7 @@ import { ArrowRight, CircleCheck, Copy, FileImage, ImageUp, LoaderCircle, Lock, 
 import Link from "next/link";
 import { useRef, useState, type DragEvent } from "react";
 import { StatusPill } from "@/components/StatusPill";
-import { formatBaht } from "@/lib/format";
+import { useI18n } from "@/i18n/provider";
 import { useSlips } from "@/lib/store";
 import type { SlipStatus } from "@/lib/types";
 
@@ -20,6 +20,8 @@ const STATUS_ICON: Record<SlipStatus, typeof CircleCheck> = {
 // ยังไม่มี API: ไฟล์ที่เลือกไม่ถูกส่งไปไหน ใช้แค่ชื่อไฟล์ แล้วจำลองผล OCR
 export default function UploadPage() {
   const { slips, addFiles, confirmAllReady } = useSlips();
+  const { t, href, baht } = useI18n();
+  const u = t.upload;
   const [dragging, setDragging] = useState(false);
   const input = useRef<HTMLInputElement>(null);
 
@@ -42,8 +44,8 @@ export default function UploadPage() {
   return (
     <div className="mx-auto max-w-2xl space-y-6">
       <header>
-        <h1 className="text-2xl font-medium tracking-tight">อัปโหลดสลิป</h1>
-        <p className="mt-1 text-sm text-muted">เลือกได้หลายรูปพร้อมกัน ระบบอ่านต่อเบื้องหลัง ปิดหน้านี้ได้เลย</p>
+        <h1 className="text-2xl font-medium tracking-tight">{u.title}</h1>
+        <p className="mt-1 text-sm text-muted">{u.subtitle}</p>
       </header>
 
       <button
@@ -63,8 +65,8 @@ export default function UploadPage() {
           <ImageUp className="size-6" aria-hidden />
         </span>
         <span>
-          <span className="block font-medium">{dragging ? "วางรูปที่นี่" : "เลือกรูปสลิป"}</span>
-          <span className="mt-1 block text-sm text-muted">แตะเพื่อเลือกจากแกลเลอรี หรือลากไฟล์มาวาง · JPG, PNG</span>
+          <span className="block font-medium">{dragging ? u.drop : u.pick}</span>
+          <span className="mt-1 block text-sm text-muted">{u.hint}</span>
         </span>
       </button>
       <input
@@ -82,16 +84,16 @@ export default function UploadPage() {
 
       <p className="flex items-center gap-2 text-xs text-muted">
         <Lock className="size-3.5 shrink-0" aria-hidden />
-        เวอร์ชันตัวอย่าง: รูปไม่ถูกส่งออกจากเครื่อง ใช้แค่ชื่อไฟล์จำลองผลการอ่าน
+        {u.demoNote}
       </p>
 
       {slips.length > 0 && (
         <section className="rounded-2xl border border-border bg-surface">
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-border px-5 py-3 text-sm">
-            <h2 className="mr-auto font-medium">รอบล่าสุด</h2>
-            {processing > 0 && <span className="text-muted">กำลังอ่าน {processing}</span>}
-            <span className="text-ok">พร้อม {ready}</span>
-            <span className="text-warn">ต้องตรวจ {toReview}</span>
+            <h2 className="mr-auto font-medium">{u.latest}</h2>
+            {processing > 0 && <span className="text-muted">{u.countProcessing(processing)}</span>}
+            <span className="text-ok">{u.countReady(ready)}</span>
+            <span className="text-warn">{u.countReview(toReview)}</span>
           </div>
           <ul className="divide-y divide-border">
             {slips.map((s) => {
@@ -106,10 +108,10 @@ export default function UploadPage() {
                     <p className="truncate text-sm">{s.fileName}</p>
                     <p className="truncate text-xs text-muted">
                       {s.status === "processing"
-                        ? "กำลังอ่าน…"
+                        ? u.reading
                         : s.status === "duplicate"
-                          ? "เลขอ้างอิงซ้ำกับรายการเดิม ข้ามให้แล้ว"
-                          : `${s.fields.receiver_name.value ?? "ไม่ทราบผู้รับ"}${amount ? ` · ฿${formatBaht(Number(amount))}` : ""}`}
+                          ? u.duplicateNote
+                          : `${s.fields.receiver_name.value ?? t.unknownReceiver}${amount ? ` · ${baht(Number(amount))}` : ""}`}
                     </p>
                   </div>
                   <StatusPill status={s.status}>
@@ -130,16 +132,16 @@ export default function UploadPage() {
               onClick={confirmAllReady}
               className="flex-1 rounded-xl border border-border bg-surface px-4 py-3 text-sm font-medium hover:bg-background"
             >
-              ยืนยัน {ready} รายการที่มั่นใจ
+              {u.confirmReady(ready)}
             </button>
           )}
           {/* ปุ่มหลักพาไปเฉพาะใบที่ไม่แน่ใจ ไม่ใช่ "ดูทั้งหมด" — หัวใจของแอป */}
           {toReview > 0 && (
             <Link
-              href="/review"
+              href={href("/review")}
               className="flex flex-1 items-center justify-center gap-2 rounded-xl bg-accent px-4 py-3 text-sm font-medium text-white hover:opacity-90 dark:text-background"
             >
-              ตรวจ {toReview} รายการที่ไม่แน่ใจ
+              {u.reviewCta(toReview)}
               <ArrowRight className="size-4" aria-hidden />
             </Link>
           )}
