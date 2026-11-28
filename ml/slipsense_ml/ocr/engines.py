@@ -54,16 +54,27 @@ class EasyOCREngine:
 
 
 class PaddleEngine:
-    """PaddleOCR 3.x (PP-OCRv5) มีโมเดลไทย — เร็วและแม่นในกลุ่ม open source
-    บางเวอร์ชันยังไม่รองรับ Python 3.13 ให้ใช้ venv 3.11/3.12"""
+    """PaddleOCR 3.x (PP-OCRv5) โมเดลอ่านไทย th_PP-OCRv5_mobile_rec
+    paddlepaddle 3.1+ มี wheel สำหรับ Python 3.13 แล้ว แต่ให้ลงใน venv แยก (dependency ชนกับ torch ของ EasyOCR ได้)
+
+    ตัวหากรอบข้อความ (detection) ค่าเริ่มต้นคือ PP-OCRv5_server_det: ทำมาสำหรับ GPU
+    บน CPU ของ Mac ช้า ~35 วิ/ใบ จึงมีอีกตัว PaddleMobileEngine ไว้เทียบ
+    """
 
     name, is_cloud, cost_per_1k_usd = "paddle", False, 0.0
+    det_model = "PP-OCRv5_server_det"
+    rec_model = "th_PP-OCRv5_mobile_rec"
 
     def __init__(self) -> None:
         from paddleocr import PaddleOCR
 
+        # ระบุชื่อโมเดลทั้งสองตัวเสมอ ไม่พึ่ง lang="th":
+        # ถ้าส่งชื่อโมเดลตัวใดตัวหนึ่ง PaddleOCR จะไม่สน lang แล้วใช้โมเดลอ่านจีน/อังกฤษเป็นค่าเริ่มต้นแบบเงียบ ๆ
+        # ผลคืออักษรไทยออกมาเป็นอักษรละตินหน้าตาคล้าย (โอนเงิน -> "laulu", บาท -> "unn") ส่วนตัวเลขยังถูก
+        # (เจอจริงตอน benchmark: recall ยอดเงิน 100% แต่ parse ได้ 8%)
         self.ocr = PaddleOCR(
-            lang="th",
+            text_detection_model_name=self.det_model,
+            text_recognition_model_name=self.rec_model,
             use_doc_orientation_classify=False,
             use_doc_unwarping=False,  # สลิปเป็น screenshot ตรงอยู่แล้ว ปิดไว้เร็วขึ้น
             use_textline_orientation=False,
@@ -76,6 +87,13 @@ class PaddleEngine:
             for text, box in zip(page["rec_texts"], page["rec_boxes"]):
                 items.append((float(box[1]), float(box[0]), text))
         return _result(self.name, _group_by_row(items), t0)
+
+
+class PaddleMobileEngine(PaddleEngine):
+    """PaddleOCR ที่ใช้ตัวหากรอบรุ่น mobile: เร็วกว่า server ~5 เท่าบน CPU (~7 วิ/ใบ) แลกกับความแม่นที่ต้องวัด"""
+
+    name = "paddle_mobile"
+    det_model = "PP-OCRv5_mobile_det"
 
 
 class TyphoonEngine:
