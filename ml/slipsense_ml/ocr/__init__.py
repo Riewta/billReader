@@ -27,6 +27,7 @@ ENGINES = {
     "tesseract": "slipsense_ml.ocr.engines:TesseractEngine",
     "easyocr": "slipsense_ml.ocr.engines:EasyOCREngine",
     "paddle": "slipsense_ml.ocr.engines:PaddleEngine",
+    "paddle_mobile": "slipsense_ml.ocr.engines:PaddleMobileEngine",
     "typhoon": "slipsense_ml.ocr.engines:TyphoonEngine",
     "gcv": "slipsense_ml.ocr.engines:GoogleVisionEngine",
 }

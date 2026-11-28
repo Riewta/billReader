@@ -183,10 +183,18 @@ def _clean_name(line: str) -> str:
     - tesseract อ่านไอคอน/โลโก้ข้าง ๆ เป็นข้อความแยกด้วยช่องว่างยาว: เลือกช่วงแรกที่มีตัวอักษร >=3 ตัว
     - token หัว/ท้ายที่ไม่มีตัวอักษร ("0", "@", "=32", "5") หรือเป็นอักษรไทยตัวเดียว ("จ")
       อักษรอังกฤษตัวเดียวเก็บไว้ เพราะเป็นอักษรย่อนามสกุล ("NARIN K")
+    - ขยะอักษรละติน/ตัวเลขที่อยู่หน้าคำนำหน้าชื่อไทย ("WBwRE นาย...": Paddle อ่านไอคอนเป็นตัวอักษร)
+      ตัดได้เพราะชื่อคนไทยไม่มีคำอังกฤษนำหน้า "นาย/นาง/น.ส." แต่ตัดเฉพาะเมื่อของที่ตัดไม่มีอักษรไทยเลย
+      ไม่งั้นนามสกุลที่ขึ้นต้นด้วย "นาย" (เช่น "นายกวงศ์") จะทำให้ชื่อจริงหายไป
     """
     chunks = [c.strip() for c in re.split(r"\s{2,}", line) if c.strip()]
     chunk = next((c for c in chunks if len(re.findall(r"[^\W\d_]", c)) >= 3), line.strip())
     toks = chunk.split()
+    for i in range(1, len(toks)):
+        if re.match(r"(?:นางสาว|น\.ส\.|นาย|นาง)", toks[i]):
+            if not any(re.search(r"[ก-๙]", t) for t in toks[:i]):
+                toks = toks[i:]
+            break
     def junk(t: str) -> bool:
         return not re.search(r"[^\W\d_]", t) or (len(t) <= 2 and not re.fullmatch(r"[A-Za-z]", t) and re.search(r"[ก-๙]", t))
 

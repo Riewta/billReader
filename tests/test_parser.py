@@ -7,7 +7,7 @@
 from datetime import datetime
 from decimal import Decimal
 
-from slipsense_ml.parsing.parser import detect_bank, extract_amount, parse_slip
+from slipsense_ml.parsing.parser import detect_bank, extract_amount, parse_slip, parse_slip_detailed
 
 KBANK = """
 โอนเงินสำเร็จ
@@ -68,6 +68,20 @@ def test_scb_with_noisy_ocr():
     assert s.paid_at == datetime(2025, 10, 28, 8, 5)
     assert s.receiver_name == "ร้านกาแฟดีดี"
     assert s.ref == "2025102808051234567"
+
+
+def test_receiver_latin_junk_before_thai_title_not_confident():
+    # Paddle อ่านไอคอนข้างชื่อเป็นอักษรละติน: ต้องตัดทิ้ง และห้ามมั่นใจ เพราะบรรทัดนี้ OCR อ่านไม่สะอาด
+    text = "โอนเงินสำเร็จ\nนาย สมชาย ใจดี\nxxx-x-x1234-x\nQzXk นายสมศักดิ์ รักดี\nธ.ไทยพาณิชย์\nxxx-x-x5678-x\n"
+    s = parse_slip_detailed(text)
+    assert s.fields.receiver_name == "นายสมศักดิ์ รักดี"
+    assert s.confident["receiver_name"] is False
+
+
+def test_receiver_surname_starting_with_nai_kept():
+    # นามสกุลขึ้นต้นด้วย "นาย" ห้ามถูกมองเป็นคำนำหน้าแล้วตัดชื่อจริงทิ้ง
+    text = "โอนเงินสำเร็จ\nนาย สมชาย ใจดี\nxxx-x-x1234-x\nนาย สมศักดิ์ นายกวงศ์\nธ.ไทยพาณิชย์\nxxx-x-x5678-x\n"
+    assert parse_slip(text).receiver_name == "นาย สมศักดิ์ นายกวงศ์"
 
 
 def test_ktb_english_slip():
